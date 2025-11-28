@@ -27,9 +27,9 @@ const Home = () => {
     try {
       setLoading(true)
       const [catRes, promoRes, configRes] = await Promise.all([
-        axios.get('/api/categorias'),
-        axios.get('/api/promociones'),
-        axios.get('/api/configuracion')
+        axios.get('${API_URL}/api/categorias'),
+        axios.get('${API_URL}/api/promociones'),
+        axios.get('${API_URL}/api/configuracion')
       ])
       setCategorias(catRes.data)
       setPromociones(promoRes.data)

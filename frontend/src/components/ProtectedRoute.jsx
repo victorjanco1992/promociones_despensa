@@ -1,9 +1,10 @@
 import { Navigate } from 'react-router-dom'
 
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('token')
+  // ✅ CORREGIDO: Verificar 'isAuthenticated' en lugar de 'token'
+  const isAuthenticated = localStorage.getItem('isAuthenticated')
   
-  if (!token) {
+  if (!isAuthenticated || isAuthenticated !== 'true') {
     return <Navigate to="/login" replace />
   }
   

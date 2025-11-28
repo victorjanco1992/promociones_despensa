@@ -35,14 +35,14 @@ const AdminDashboard = () => {
   }, [])
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token')
-    return { 'Authorization': `Bearer ${token}` }
-  }
+  const isAuthenticated = localStorage.getItem('isAuthenticated') || 'false'
+  return { 'x-authenticated': isAuthenticated }
+}
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    navigate('/login')
-  }
+  localStorage.removeItem('isAuthenticated')
+  navigate('/login')
+}
 
   const fetchData = async () => {
     try {
@@ -101,7 +101,7 @@ const AdminDashboard = () => {
         await axios.put(`${import.meta.env.VITE_API_URL}/api/promociones/${editingId}`, formData, { headers: getAuthHeaders() })
         showSuccess('Promoción actualizada exitosamente')
       } else {
-        await axios.post('${import.meta.env.VITE_API_URL}/api/promociones', formData, { headers: getAuthHeaders() })
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/promociones`, formData, { headers: getAuthHeaders() })
         showSuccess('Promoción creada exitosamente')
       }
 
@@ -176,7 +176,7 @@ const AdminDashboard = () => {
         await axios.put(`${import.meta.env.VITE_API_URL}/api/categorias/${editingCatId}`, data, { headers: getAuthHeaders() })
         showSuccess('Categoría actualizada')
       } else {
-        await axios.post('${import.meta.env.VITE_API_URL}/api/categorias', data, { headers: getAuthHeaders() })
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/categorias`, data, { headers: getAuthHeaders() })
         showSuccess('Categoría creada')
       }
 

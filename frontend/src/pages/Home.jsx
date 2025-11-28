@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
-import API_URL from '../config/api'
 
 const Home = () => {
   const [categorias, setCategorias] = useState([])
@@ -27,9 +26,9 @@ const Home = () => {
     try {
       setLoading(true)
       const [catRes, promoRes, configRes] = await Promise.all([
-        axios.get('${API_URL}/api/categorias'),
-        axios.get('${API_URL}/api/promociones'),
-        axios.get('${API_URL}/api/configuracion')
+        axios.get('${import.meta.env.VITE_API_URL}/api/categorias'),
+        axios.get('${import.meta.env.VITE_API_URL}/api/promociones'),
+        axios.get('${import.meta.env.VITE_API_URL}/api/configuracion')
       ])
       setCategorias(catRes.data)
       setPromociones(promoRes.data)

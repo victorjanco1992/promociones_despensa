@@ -20,13 +20,14 @@ const Login = () => {
       setLoading(true)
       setError('')
       
-      const response = await axios.post('/api/auth/login', { pin })
+      // ✅ CORREGIDO: URL con backticks y respuesta simplificada
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login`, { pin })
       
-      // Guardar token en localStorage
-      localStorage.setItem('token', response.data.token)
-      
-      // Redirigir al dashboard
-      navigate('/admin')
+      // ✅ CORREGIDO: Guardar flag simple en lugar de token
+      if (response.data.success) {
+        localStorage.setItem('isAuthenticated', 'true')
+        navigate('/admin')
+      }
     } catch (err) {
       console.error('Error en login:', err)
       setError(err.response?.data?.error || 'Error al iniciar sesión')
@@ -48,7 +49,7 @@ const Login = () => {
           <h1 className="text-4xl font-bold text-white mb-2">
             🔐 Admin Login
           </h1>
-          <p className="text-indigo-100">
+          <p className="text-green-100">
             Ingrese su PIN de 4 dígitos
           </p>
         </div>
@@ -72,7 +73,7 @@ const Login = () => {
                 maxLength="4"
                 value={pin}
                 onChange={handlePinChange}
-                className="w-full px-4 py-3 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition tracking-widest"
+                className="w-full px-4 py-3 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition tracking-widest"
                 placeholder="••••"
                 autoFocus
                 disabled={loading}
@@ -90,7 +91,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading || pin.length !== 4}
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition duration-200 transform hover:scale-105 active:scale-95"
+              className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition duration-200 transform hover:scale-105 active:scale-95"
             >
               {loading ? (
                 <span className="flex items-center justify-center">
@@ -110,7 +111,7 @@ const Login = () => {
           <div className="mt-6 text-center">
             <Link 
               to="/" 
-              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+              className="text-sm text-green-600 hover:text-green-800 font-medium"
             >
               ← Volver al inicio
             </Link>
@@ -119,8 +120,8 @@ const Login = () => {
 
         {/* Info */}
         <div className="mt-6 text-center">
-          <p className="text-indigo-100 text-sm">
-            PIN por defecto: 1234
+          <p className="text-green-100 text-sm">
+            Contacta al administrador si olvidaste tu PIN
           </p>
         </div>
       </div>

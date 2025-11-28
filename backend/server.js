@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
-const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 
@@ -46,15 +45,6 @@ const upload = multer({
 async function initDatabase() {
   try {
     console.log('🔄 Verificando base de datos...');
-
-    // Crear tabla de usuarios
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS usuarios (
-        id SERIAL PRIMARY KEY,
-        pin VARCHAR(255) NOT NULL
-      );
-    `);
-    console.log('✅ Tabla usuarios lista');
 
     // Crear tabla de categorías
     await pool.query(`
@@ -101,11 +91,6 @@ async function initDatabase() {
     `);
     console.log('✅ Tabla configuracion lista');
 
-    // Recrear usuario admin
-    await pool.query('DELETE FROM usuarios');
-    await pool.query(`INSERT INTO usuarios (pin) VALUES ('1234')`);
-    console.log('✅ Usuario admin listo (PIN: 1234)');
-
     // Verificar categorías por defecto
     const catCheck = await pool.query('SELECT COUNT(*) FROM categorias');
     
@@ -149,6 +134,7 @@ async function initDatabase() {
     }
 
     console.log('✅ Base de datos inicializada correctamente\n');
+    console.log(`🔐 PIN configurado: ${process.env.ADMIN_PIN}\n`);
   } catch (error) {
     console.error('❌ Error al inicializar la base de datos:', error.message);
     process.exit(1);
@@ -156,29 +142,20 @@ async function initDatabase() {
 }
 
 // ========================================
-// MIDDLEWARE DE AUTENTICACIÓN
+// MIDDLEWARE DE AUTENTICACIÓN (SIMPLIFICADO)
 // ========================================
 
 const authMiddleware = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const isAuthenticated = req.headers['x-authenticated'];
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No se proporcionó token de autenticación' });
+    if (isAuthenticated !== 'true') {
+      return res.status(401).json({ error: 'No autenticado' });
     }
 
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id;
     next();
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token expirado' });
-    }
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Token inválido' });
-    }
-    return res.status(500).json({ error: 'Error en la verificación del token' });
+    return res.status(500).json({ error: 'Error en la verificación de autenticación' });
   }
 };
 
@@ -207,7 +184,7 @@ app.use((req, res, next) => {
 // RUTAS DE AUTENTICACIÓN
 // ========================================
 
-// POST /api/auth/login
+// POST /api/auth/login - SIMPLIFICADO SIN JWT
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { pin } = req.body;
@@ -218,19 +195,14 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'PIN debe ser de 4 dígitos' });
     }
 
-    const result = await pool.query('SELECT * FROM usuarios WHERE pin = $1', [pin]);
-
-    console.log('👤 Usuarios encontrados:', result.rows.length);
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'PIN incorrecto' });
+    // Comparar directamente con el PIN del .env
+    if (pin === process.env.ADMIN_PIN) {
+      console.log('✅ Login exitoso');
+      res.json({ success: true, message: 'Login exitoso' });
+    } else {
+      console.log('❌ PIN incorrecto');
+      res.status(401).json({ error: 'PIN incorrecto' });
     }
-
-    const usuario = result.rows[0];
-    const token = jwt.sign({ id: usuario.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    console.log('✅ Login exitoso');
-    res.json({ token, message: 'Login exitoso' });
   } catch (error) {
     console.error('❌ Error en login:', error);
     res.status(500).json({ error: 'Error en el servidor' });
@@ -537,7 +509,7 @@ app.use((err, req, res, next) => {
 initDatabase().then(() => {
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📍 http://localhost:${PORT}`);
+    console.log(`🔗 http://localhost:${PORT}`);
   });
 }).catch(error => {
   console.error('❌ Failed to start server:', error);

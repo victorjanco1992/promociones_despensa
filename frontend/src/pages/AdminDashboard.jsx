@@ -99,10 +99,10 @@ const AdminDashboard = () => {
       if (imagen) formData.append('imagen', imagen)
 
       if (editingId) {
-        await axios.put(`/api/promociones/${editingId}`, formData, { headers: getAuthHeaders() })
+        await axios.put(`${API_URL}/api/promociones/${editingId}`, formData, { headers: getAuthHeaders() })
         showSuccess('Promoción actualizada exitosamente')
       } else {
-        await axios.post('/api/promociones', formData, { headers: getAuthHeaders() })
+        await axios.post('${API_URL}/api/promociones', formData, { headers: getAuthHeaders() })
         showSuccess('Promoción creada exitosamente')
       }
 
@@ -139,7 +139,7 @@ const AdminDashboard = () => {
   const handleDeletePromo = async (id) => {
     if (!confirm('¿Eliminar esta promoción?')) return
     try {
-      await axios.delete(`/api/promociones/${id}`, { headers: getAuthHeaders() })
+      await axios.delete(`${API_URL}/api/promociones/${id}`, { headers: getAuthHeaders() })
       showSuccess('Promoción eliminada')
       fetchData()
     } catch (err) {
@@ -174,10 +174,10 @@ const AdminDashboard = () => {
       }
 
       if (editingCatId) {
-        await axios.put(`/api/categorias/${editingCatId}`, data, { headers: getAuthHeaders() })
+        await axios.put(`${API_URL}/api/categorias/${editingCatId}`, data, { headers: getAuthHeaders() })
         showSuccess('Categoría actualizada')
       } else {
-        await axios.post('/api/categorias', data, { headers: getAuthHeaders() })
+        await axios.post('${API_URL}/api/categorias', data, { headers: getAuthHeaders() })
         showSuccess('Categoría creada')
       }
 

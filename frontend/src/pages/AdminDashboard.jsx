@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { getApiUrl } from '../config/api'
+import API_URL from '../config/api'
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('promociones')
@@ -49,9 +49,9 @@ const AdminDashboard = () => {
     try {
       setLoading(true)
       const [catRes, promoRes, configRes] = await Promise.all([
-        axios.get(getApiUrl('/api/categorias')),
-        axios.get(getApiUrl('/api/promociones')),
-        axios.get(getApiUrl('/api/configuracion'))
+        axios.get(`${API_URL}/api/categorias`),
+        axios.get(`${API_URL}/api/promociones`),
+        axios.get(`${API_URL}/api/configuracion`)
       ])
       setCategorias(catRes.data)
       setPromociones(promoRes.data)
@@ -99,10 +99,10 @@ const AdminDashboard = () => {
       if (imagen) formData.append('imagen', imagen)
 
       if (editingId) {
-        await axios.put(`${getApiUrl('/api/promociones')}/${editingId}`, formData, { headers: getAuthHeaders() })
+        await axios.put(`/api/promociones/${editingId}`, formData, { headers: getAuthHeaders() })
         showSuccess('Promoción actualizada exitosamente')
       } else {
-        await axios.post(getApiUrl('/api/promociones'), formData, { headers: getAuthHeaders() })
+        await axios.post('/api/promociones', formData, { headers: getAuthHeaders() })
         showSuccess('Promoción creada exitosamente')
       }
 
@@ -139,7 +139,7 @@ const AdminDashboard = () => {
   const handleDeletePromo = async (id) => {
     if (!confirm('¿Eliminar esta promoción?')) return
     try {
-      await axios.delete(`${getApiUrl('/api/promociones')}/${id}`, { headers: getAuthHeaders() })
+      await axios.delete(`/api/promociones/${id}`, { headers: getAuthHeaders() })
       showSuccess('Promoción eliminada')
       fetchData()
     } catch (err) {
@@ -174,10 +174,10 @@ const AdminDashboard = () => {
       }
 
       if (editingCatId) {
-        await axios.put(`${getApiUrl('/api/categorias')}/${editingCatId}`, data, { headers: getAuthHeaders() })
+        await axios.put(`/api/categorias/${editingCatId}`, data, { headers: getAuthHeaders() })
         showSuccess('Categoría actualizada')
       } else {
-        await axios.post(getApiUrl('/api/categorias'), data, { headers: getAuthHeaders() })
+        await axios.post('/api/categorias', data, { headers: getAuthHeaders() })
         showSuccess('Categoría creada')
       }
 
@@ -206,7 +206,7 @@ const AdminDashboard = () => {
   const handleDeleteCat = async (id) => {
     if (!confirm('¿Eliminar esta categoría? Las promociones asociadas quedarán sin categoría.')) return
     try {
-      await axios.delete(`${getApiUrl('/api/categorias')}/${id}`, { headers: getAuthHeaders() })
+      await axios.delete(`${API_URL}/api/categorias/${id}`, { headers: getAuthHeaders() })
       showSuccess('Categoría eliminada')
       fetchData()
     } catch (err) {
@@ -218,7 +218,7 @@ const AdminDashboard = () => {
   const handleConfigSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.put(getApiUrl('/api/configuracion'), configuracion, { headers: getAuthHeaders() })
+      await axios.put(`${API_URL}/api/configuracion`, configuracion, { headers: getAuthHeaders() })
       showSuccess('Configuración actualizada')
       fetchData()
     } catch (err) {

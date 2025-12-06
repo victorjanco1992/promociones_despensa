@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import API_URL from '../config/api'
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('promociones')
@@ -28,6 +29,10 @@ const AdminDashboard = () => {
   const [catOrden, setCatOrden] = useState(0)
   const [editingCatId, setEditingCatId] = useState(null)
 
+  // Estado para drag and drop
+  const [draggedItem, setDraggedItem] = useState(null)
+  const [draggingOver, setDraggingOver] = useState(null)
+
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -35,22 +40,22 @@ const AdminDashboard = () => {
   }, [])
 
   const getAuthHeaders = () => {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') || 'false'
-  return { 'x-authenticated': isAuthenticated }
-}
+    const token = localStorage.getItem('token')
+    return { 'Authorization': `Bearer ${token}` }
+  }
 
   const handleLogout = () => {
-  localStorage.removeItem('isAuthenticated')
-  navigate('/login')
-}
+    localStorage.removeItem('token')
+    navigate('/login')
+  }
 
   const fetchData = async () => {
     try {
       setLoading(true)
       const [catRes, promoRes, configRes] = await Promise.all([
-        axios.get(`${import.meta.env.VITE_API_URL}/api/categorias`),
-        axios.get(`${import.meta.env.VITE_API_URL}/api/promociones`),
-        axios.get(`${import.meta.env.VITE_API_URL}/api/configuracion`)
+        axios.get(`${API_URL}/api/categorias`),
+        axios.get(`${API_URL}/api/promociones`),
+        axios.get(`${API_URL}/api/configuracion`)
       ])
       setCategorias(catRes.data)
       setPromociones(promoRes.data)
@@ -98,10 +103,10 @@ const AdminDashboard = () => {
       if (imagen) formData.append('imagen', imagen)
 
       if (editingId) {
-        await axios.put(`${import.meta.env.VITE_API_URL}/api/promociones/${editingId}`, formData, { headers: getAuthHeaders() })
+        await axios.put(`/api/promociones/${editingId}`, formData, { headers: getAuthHeaders() })
         showSuccess('Promoción actualizada exitosamente')
       } else {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/promociones`, formData, { headers: getAuthHeaders() })
+        await axios.post('/api/promociones', formData, { headers: getAuthHeaders() })
         showSuccess('Promoción creada exitosamente')
       }
 
@@ -138,7 +143,7 @@ const AdminDashboard = () => {
   const handleDeletePromo = async (id) => {
     if (!confirm('¿Eliminar esta promoción?')) return
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/promociones/${id}`, { headers: getAuthHeaders() })
+      await axios.delete(`/api/promociones/${id}`, { headers: getAuthHeaders() })
       showSuccess('Promoción eliminada')
       fetchData()
     } catch (err) {
@@ -173,10 +178,10 @@ const AdminDashboard = () => {
       }
 
       if (editingCatId) {
-        await axios.put(`${import.meta.env.VITE_API_URL}/api/categorias/${editingCatId}`, data, { headers: getAuthHeaders() })
+        await axios.put(`/api/categorias/${editingCatId}`, data, { headers: getAuthHeaders() })
         showSuccess('Categoría actualizada')
       } else {
-        await axios.post(`${import.meta.env.VITE_API_URL}/api/categorias`, data, { headers: getAuthHeaders() })
+        await axios.post('/api/categorias', data, { headers: getAuthHeaders() })
         showSuccess('Categoría creada')
       }
 
@@ -205,7 +210,7 @@ const AdminDashboard = () => {
   const handleDeleteCat = async (id) => {
     if (!confirm('¿Eliminar esta categoría? Las promociones asociadas quedarán sin categoría.')) return
     try {
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/categorias/${id}`, { headers: getAuthHeaders() })
+      await axios.delete(`${API_URL}/api/categorias/${id}`, { headers: getAuthHeaders() })
       showSuccess('Categoría eliminada')
       fetchData()
     } catch (err) {
@@ -217,7 +222,7 @@ const AdminDashboard = () => {
   const handleConfigSubmit = async (e) => {
     e.preventDefault()
     try {
-      await axios.put(`${import.meta.env.VITE_API_URL}/api/configuracion`, configuracion, { headers: getAuthHeaders() })
+      await axios.put(`${API_URL}/api/configuracion`, configuracion, { headers: getAuthHeaders() })
       showSuccess('Configuración actualizada')
       fetchData()
     } catch (err) {
@@ -227,6 +232,129 @@ const AdminDashboard = () => {
 
   const handleConfigChange = (field, value) => {
     setConfiguracion(prev => ({ ...prev, [field]: value }))
+  }
+
+  // === DRAG AND DROP ===
+  const handleDragStart = (e, index) => {
+    setDraggedItem(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDraggingOver(index)
+  }
+
+  const handleDragLeave = () => {
+    setDraggingOver(null)
+  }
+
+  const handleDrop = async (e, dropIndex) => {
+    e.preventDefault()
+    
+    if (draggedItem === null || draggedItem === dropIndex) {
+      setDraggedItem(null)
+      setDraggingOver(null)
+      return
+    }
+
+    try {
+      const newPromociones = [...promociones]
+      const [draggedPromo] = newPromociones.splice(draggedItem, 1)
+      newPromociones.splice(dropIndex, 0, draggedPromo)
+
+      setPromociones(newPromociones)
+
+      const ordenActualizado = newPromociones.map((promo, index) => ({
+        id: promo.id,
+        orden: index
+      }))
+
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/promociones/reorder`,
+        { promociones: ordenActualizado },
+        { headers: getAuthHeaders() }
+      )
+
+      showSuccess('Orden actualizado exitosamente')
+    } catch (err) {
+      console.error('Error al reordenar:', err)
+      fetchData()
+      alert('Error al actualizar el orden')
+    } finally {
+      setDraggedItem(null)
+      setDraggingOver(null)
+    }
+  }
+
+  const handleDragEnd = () => {
+    setDraggedItem(null)
+    setDraggingOver(null)
+  }
+
+  // === DRAG AND DROP ===
+  const handleDragStart = (e, index) => {
+    setDraggedItem(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDraggingOver(index)
+  }
+
+  const handleDragLeave = () => {
+    setDraggingOver(null)
+  }
+
+  const handleDrop = async (e, dropIndex) => {
+    e.preventDefault()
+    
+    if (draggedItem === null || draggedItem === dropIndex) {
+      setDraggedItem(null)
+      setDraggingOver(null)
+      return
+    }
+
+    try {
+      // Reordenar el array localmente
+      const newPromociones = [...promociones]
+      const [draggedPromo] = newPromociones.splice(draggedItem, 1)
+      newPromociones.splice(dropIndex, 0, draggedPromo)
+
+      // Actualizar el orden en el estado
+      setPromociones(newPromociones)
+
+      // Preparar datos para el backend
+      const ordenActualizado = newPromociones.map((promo, index) => ({
+        id: promo.id,
+        orden: index
+      }))
+
+      // Enviar al backend
+      await axios.put(
+        `${API_URL}/api/promociones/reorder`,
+        { promociones: ordenActualizado },
+        { headers: getAuthHeaders() }
+      )
+
+      showSuccess('Orden actualizado exitosamente')
+    } catch (err) {
+      console.error('Error al reordenar:', err)
+      // Recargar datos si hay error
+      fetchData()
+      alert('Error al actualizar el orden')
+    } finally {
+      setDraggedItem(null)
+      setDraggingOver(null)
+    }
+  }
+
+  const handleDragEnd = () => {
+    setDraggedItem(null)
+    setDraggingOver(null)
   }
 
   const iconos = ['🎄', '🥤', '🛒', '🥩', '🍞', '🧀', '🍎', '🐟', '🍕', '🎂', '☕', '🍷', '🎁', '💝', '🏷️', '⭐']
@@ -409,9 +537,17 @@ const AdminDashboard = () => {
 
             {/* Lista */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">
                 📋 Promociones ({promociones.length})
               </h2>
+              <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-semibold">Tip:</span> Arrastra y suelta las promociones para cambiar su orden de aparición
+                </p>
+              </div>
               {loading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
@@ -420,12 +556,39 @@ const AdminDashboard = () => {
                 <p className="text-gray-600 text-center py-8">No hay promociones</p>
               ) : (
                 <div className="grid gap-4">
-                  {promociones.map((promo) => (
-                    <div key={promo.id} className="flex flex-col sm:flex-row gap-4 p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-300 transition">
+                  {promociones.map((promo, index) => (
+                    <div 
+                      key={promo.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, index)}
+                      onDragEnd={handleDragEnd}
+                      className={`flex flex-col sm:flex-row gap-4 p-4 border-2 rounded-lg transition-all cursor-move ${
+                        draggedItem === index 
+                          ? 'opacity-50 border-green-400' 
+                          : draggingOver === index
+                          ? 'border-green-500 bg-green-50 scale-105'
+                          : 'border-gray-200 hover:border-green-300'
+                      }`}
+                    >
+                      {/* Icono de arrastre */}
+                      <div className="flex items-center justify-center sm:justify-start gap-2">
+                        <div className="text-gray-400">
+                          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2zm-4 4h2v2H9v-2zm4 0h2v2h-2v-2z"/>
+                          </svg>
+                        </div>
+                        <span className="text-sm font-semibold text-gray-500 min-w-[30px]">
+                          #{index + 1}
+                        </span>
+                      </div>
+
                       <img src={promo.imagen_url} alt={promo.titulo} className="w-full sm:w-32 h-32 object-cover rounded-lg" />
                       <div className="flex-1">
                         <h3 className="text-lg font-bold text-gray-800">{promo.titulo}</h3>
-                        {promo.descripcion && <p className="text-sm text-gray-600 mt-1">{promo.descripcion}</p>}
+                        {promo.descripcion && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{promo.descripcion}</p>}
                         {promo.categoria_nombre && (
                           <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
                             {promo.categoria_icono} {promo.categoria_nombre}

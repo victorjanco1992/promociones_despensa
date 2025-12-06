@@ -46,6 +46,15 @@ async function initDatabase() {
   try {
     console.log('🔄 Verificando base de datos...');
 
+    // Crear tabla de usuarios
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id SERIAL PRIMARY KEY,
+        pin VARCHAR(255) NOT NULL
+      );
+    `);
+    console.log('✅ Tabla usuarios lista');
+
     // Crear tabla de categorías
     await pool.query(`
       CREATE TABLE IF NOT EXISTS categorias (
@@ -69,6 +78,7 @@ async function initDatabase() {
         imagen_url VARCHAR(500) UNIQUE NOT NULL,
         cloudinary_id VARCHAR(255) UNIQUE NOT NULL,
         categoria_id INTEGER REFERENCES categorias(id) ON DELETE CASCADE,
+        orden INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -90,6 +100,11 @@ async function initDatabase() {
       );
     `);
     console.log('✅ Tabla configuracion lista');
+
+    // Recrear usuario admin
+    await pool.query('DELETE FROM usuarios');
+    await pool.query(`INSERT INTO usuarios (pin) VALUES ('1234')`);
+    console.log('✅ Usuario admin listo (PIN: 1234)');
 
     // Verificar categorías por defecto
     const catCheck = await pool.query('SELECT COUNT(*) FROM categorias');
@@ -134,7 +149,7 @@ async function initDatabase() {
     }
 
     console.log('✅ Base de datos inicializada correctamente\n');
-    console.log(`🔐 PIN configurado: ${process.env.ADMIN_PIN}\n`);
+    console.log(`🔑 PIN configurado: ${process.env.ADMIN_PIN}\n`);
   } catch (error) {
     console.error('❌ Error al inicializar la base de datos:', error.message);
     process.exit(1);
@@ -142,7 +157,7 @@ async function initDatabase() {
 }
 
 // ========================================
-// MIDDLEWARE DE AUTENTICACIÓN (SIMPLIFICADO)
+// MIDDLEWARE DE AUTENTICACIÓN (SIMPLIFICADO SIN JWT)
 // ========================================
 
 const authMiddleware = (req, res, next) => {
@@ -346,7 +361,7 @@ app.get('/api/promociones', async (req, res) => {
       SELECT p.*, c.nombre as categoria_nombre, c.icono as categoria_icono, c.color as categoria_color
       FROM promociones p
       LEFT JOIN categorias c ON p.categoria_id = c.id
-      ORDER BY p.created_at DESC
+      ORDER BY p.orden ASC, p.created_at DESC
     `);
     res.json(result.rows);
   } catch (error) {
@@ -360,13 +375,36 @@ app.get('/api/promociones/categoria/:categoriaId', async (req, res) => {
   try {
     const { categoriaId } = req.params;
     const result = await pool.query(
-      'SELECT * FROM promociones WHERE categoria_id = $1 ORDER BY created_at DESC',
+      'SELECT * FROM promociones WHERE categoria_id = $1 ORDER BY orden ASC, created_at DESC',
       [categoriaId]
     );
     res.json(result.rows);
   } catch (error) {
     console.error('Error al obtener promociones:', error);
     res.status(500).json({ error: 'Error al obtener promociones' });
+  }
+});
+
+// PUT /api/promociones/reorder - Actualizar orden de promociones
+app.put('/api/promociones/reorder', authMiddleware, async (req, res) => {
+  try {
+    const { promociones } = req.body; // Array de { id, orden }
+
+    if (!Array.isArray(promociones)) {
+      return res.status(400).json({ error: 'Se requiere un array de promociones' });
+    }
+
+    // Actualizar el orden de cada promoción
+    const updatePromises = promociones.map(({ id, orden }) =>
+      pool.query('UPDATE promociones SET orden = $1 WHERE id = $2', [orden, id])
+    );
+
+    await Promise.all(updatePromises);
+
+    res.json({ message: 'Orden actualizado exitosamente' });
+  } catch (error) {
+    console.error('Error al reordenar promociones:', error);
+    res.status(500).json({ error: 'Error al reordenar promociones' });
   }
 });
 
@@ -400,7 +438,7 @@ app.post('/api/promociones', authMiddleware, upload.single('imagen'), async (req
 
     // Insertar en base de datos
     const dbResult = await pool.query(
-      'INSERT INTO promociones (titulo, descripcion, imagen_url, cloudinary_id, categoria_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      'INSERT INTO promociones (titulo, descripcion, imagen_url, cloudinary_id, categoria_id, orden) VALUES ($1, $2, $3, $4, $5, (SELECT COALESCE(MAX(orden), 0) + 1 FROM promociones)) RETURNING *',
       [titulo.trim(), descripcion || '', cloudinaryResult.secure_url, cloudinaryResult.public_id, categoria_id || null]
     );
 
@@ -509,7 +547,7 @@ app.use((err, req, res, next) => {
 initDatabase().then(() => {
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🔗 http://localhost:${PORT}`);
+    console.log(`📍 http://localhost:${PORT}`);
   });
 }).catch(error => {
   console.error('❌ Failed to start server:', error);

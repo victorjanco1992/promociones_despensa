@@ -28,6 +28,11 @@ const AdminDashboard = () => {
   const [catOrden, setCatOrden] = useState(0)
   const [editingCatId, setEditingCatId] = useState(null)
 
+  // Estado para drag & drop
+  const [draggedItem, setDraggedItem] = useState(null)
+  const [dragOverIndex, setDragOverIndex] = useState(null)
+  const [isReordering, setIsReordering] = useState(false)
+
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -35,14 +40,14 @@ const AdminDashboard = () => {
   }, [])
 
   const getAuthHeaders = () => {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') || 'false'
-  return { 'x-authenticated': isAuthenticated }
-}
+    const isAuthenticated = localStorage.getItem('isAuthenticated') || 'false'
+    return { 'x-authenticated': isAuthenticated }
+  }
 
   const handleLogout = () => {
-  localStorage.removeItem('isAuthenticated')
-  navigate('/login')
-}
+    localStorage.removeItem('isAuthenticated')
+    navigate('/login')
+  }
 
   const fetchData = async () => {
     try {
@@ -67,6 +72,73 @@ const AdminDashboard = () => {
   const showSuccess = (message) => {
     setSuccessMessage(message)
     setTimeout(() => setSuccessMessage(''), 3000)
+  }
+
+  // ========================================
+  // DRAG & DROP HANDLERS
+  // ========================================
+  
+  const handleDragStart = (e, index) => {
+    setDraggedItem(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.currentTarget.style.opacity = '0.5'
+  }
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault()
+    if (draggedItem === null || draggedItem === index) return
+    setDragOverIndex(index)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = async (e) => {
+    e.currentTarget.style.opacity = '1'
+    
+    if (draggedItem === null || dragOverIndex === null || draggedItem === dragOverIndex) {
+      setDraggedItem(null)
+      setDragOverIndex(null)
+      return
+    }
+
+    try {
+      setIsReordering(true)
+      
+      // Reordenar array localmente
+      const newPromociones = [...promociones]
+      const [movedItem] = newPromociones.splice(draggedItem, 1)
+      newPromociones.splice(dragOverIndex, 0, movedItem)
+      
+      // Actualizar estado local inmediatamente para feedback visual
+      setPromociones(newPromociones)
+      
+      // Preparar datos para el backend
+      const ordenData = newPromociones.map((promo, index) => ({
+        id: promo.id,
+        orden: index
+      }))
+      
+      // Enviar al backend
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/promociones/reordenar`,
+        { promociones: ordenData },
+        { headers: getAuthHeaders() }
+      )
+      
+      showSuccess('✅ Orden actualizado')
+      
+    } catch (err) {
+      console.error('Error al reordenar:', err)
+      setError('Error al guardar el nuevo orden')
+      // Revertir cambios locales en caso de error
+      fetchData()
+    } finally {
+      setIsReordering(false)
+      setDraggedItem(null)
+      setDragOverIndex(null)
+    }
   }
 
   // === PROMOCIONES ===
@@ -229,7 +301,7 @@ const AdminDashboard = () => {
     setConfiguracion(prev => ({ ...prev, [field]: value }))
   }
 
-  const iconos = ['🎄', '🥤', '🛒', '🥩', '🍞', '🧀', '🍎', '🐟', '🍕', '🎂', '☕', '🍷', '🎁', '💝', '🏷️', '⭐']
+  const iconos = ['🎄', '🥤', '🛒', '🥩', '🍞', '🧀', '🍎', '🍟', '🍕', '🎂', '☕', '🍷', '🎁', '💝', '🏷️', '⭐']
   const colores = [
     { value: 'red', label: 'Rojo', class: 'bg-red-500' },
     { value: 'blue', label: 'Azul', class: 'bg-blue-500' },
@@ -275,6 +347,15 @@ const AdminDashboard = () => {
         {error && (
           <div className="mb-6 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md">
             {error}
+          </div>
+        )}
+
+        {isReordering && (
+          <div className="mb-6 bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-lg shadow-md">
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-700 mr-3"></div>
+              <span>Guardando nuevo orden...</span>
+            </div>
           </div>
         )}
 
@@ -407,11 +488,19 @@ const AdminDashboard = () => {
               </form>
             </div>
 
-            {/* Lista */}
+            {/* Lista con Drag & Drop */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                📋 Promociones ({promociones.length})
-              </h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  📋 Promociones ({promociones.length})
+                </h2>
+                <div className="bg-blue-50 px-4 py-2 rounded-lg">
+                  <p className="text-sm text-blue-700 font-semibold">
+                    💡 Arrastra para reordenar
+                  </p>
+                </div>
+              </div>
+              
               {loading ? (
                 <div className="flex justify-center py-8">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
@@ -419,9 +508,39 @@ const AdminDashboard = () => {
               ) : promociones.length === 0 ? (
                 <p className="text-gray-600 text-center py-8">No hay promociones</p>
               ) : (
-                <div className="grid gap-4">
-                  {promociones.map((promo) => (
-                    <div key={promo.id} className="flex flex-col sm:flex-row gap-4 p-4 border-2 border-gray-200 rounded-lg hover:border-indigo-300 transition">
+                <div className="space-y-4">
+                  {promociones.map((promo, index) => (
+                    <div
+                      key={promo.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
+                      onDragLeave={handleDragLeave}
+                      className={`
+                        flex flex-col sm:flex-row gap-4 p-4 border-2 rounded-lg 
+                        transition-all duration-200 cursor-move
+                        ${draggedItem === index ? 'opacity-50 scale-95' : ''}
+                        ${dragOverIndex === index && draggedItem !== index 
+                          ? 'border-green-500 bg-green-50 scale-105 shadow-lg' 
+                          : 'border-gray-200 hover:border-green-300 hover:shadow-md'
+                        }
+                      `}
+                    >
+                      {/* Drag Handle */}
+                      <div className="flex items-center justify-center w-8">
+                        <div className="text-2xl text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
+                          ⋮⋮
+                        </div>
+                      </div>
+
+                      {/* Número de orden */}
+                      <div className="flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center text-lg">
+                          {index + 1}
+                        </div>
+                      </div>
+
                       <img src={promo.imagen_url} alt={promo.titulo} className="w-full sm:w-32 h-32 object-cover rounded-lg" />
                       <div className="flex-1">
                         <h3 className="text-lg font-bold text-gray-800">{promo.titulo}</h3>

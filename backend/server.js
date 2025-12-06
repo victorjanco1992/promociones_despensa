@@ -74,6 +74,13 @@ async function initDatabase() {
     `);
     console.log('✅ Tabla promociones lista');
 
+    // ⭐ AGREGAR COLUMNA ORDEN (si no existe) - ESTO ES SEGURO
+    await pool.query(`
+      ALTER TABLE promociones 
+      ADD COLUMN IF NOT EXISTS orden INTEGER DEFAULT 0;
+    `);
+    console.log('✅ Campo "orden" verificado en tabla promociones');
+
     // Crear tabla de configuración del negocio
     await pool.query(`
       CREATE TABLE IF NOT EXISTS configuracion (
@@ -126,7 +133,9 @@ async function initDatabase() {
           -68.845839,
           '+54 261 123-4567',
           '5492611234567',
-          'Lunes a Viernes: 8:00 - 20:00\nSábados: 9:00 - 13:00\nDomingos: Cerrado',
+          'Lunes a Viernes: 8:00 - 20:00
+Sábados: 9:00 - 13:00
+Domingos: Cerrado',
           'Hola! Quisiera consultar sobre una promoción'
         );
       `);
@@ -339,14 +348,14 @@ app.delete('/api/categorias/:id', authMiddleware, async (req, res) => {
 // RUTAS DE PROMOCIONES
 // ========================================
 
-// GET /api/promociones - Obtener todas
+// GET /api/promociones - Obtener todas (MODIFICADO: ordenar por campo "orden")
 app.get('/api/promociones', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT p.*, c.nombre as categoria_nombre, c.icono as categoria_icono, c.color as categoria_color
       FROM promociones p
       LEFT JOIN categorias c ON p.categoria_id = c.id
-      ORDER BY p.created_at DESC
+      ORDER BY p.orden ASC, p.created_at DESC
     `);
     res.json(result.rows);
   } catch (error) {
@@ -360,13 +369,51 @@ app.get('/api/promociones/categoria/:categoriaId', async (req, res) => {
   try {
     const { categoriaId } = req.params;
     const result = await pool.query(
-      'SELECT * FROM promociones WHERE categoria_id = $1 ORDER BY created_at DESC',
+      'SELECT * FROM promociones WHERE categoria_id = $1 ORDER BY orden ASC, created_at DESC',
       [categoriaId]
     );
     res.json(result.rows);
   } catch (error) {
     console.error('Error al obtener promociones:', error);
     res.status(500).json({ error: 'Error al obtener promociones' });
+  }
+});
+
+// ⭐ NUEVO ENDPOINT: PUT /api/promociones/reordenar - Actualizar orden
+app.put('/api/promociones/reordenar', authMiddleware, async (req, res) => {
+  try {
+    const { promociones } = req.body;
+
+    if (!Array.isArray(promociones) || promociones.length === 0) {
+      return res.status(400).json({ error: 'Datos inválidos' });
+    }
+
+    console.log('🔄 Reordenando promociones:', promociones);
+
+    // Usar transacción para asegurar consistencia
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const promo of promociones) {
+        await client.query(
+          'UPDATE promociones SET orden = $1 WHERE id = $2',
+          [promo.orden, promo.id]
+        );
+      }
+
+      await client.query('COMMIT');
+      console.log('✅ Orden actualizado exitosamente');
+      res.json({ message: 'Orden actualizado exitosamente' });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('❌ Error al reordenar promociones:', error);
+    res.status(500).json({ error: 'Error al reordenar promociones' });
   }
 });
 
@@ -398,7 +445,7 @@ app.post('/api/promociones', authMiddleware, upload.single('imagen'), async (req
 
     const cloudinaryResult = await uploadPromise;
 
-    // Insertar en base de datos
+    // Insertar en base de datos (orden se establece automáticamente en 0)
     const dbResult = await pool.query(
       'INSERT INTO promociones (titulo, descripcion, imagen_url, cloudinary_id, categoria_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [titulo.trim(), descripcion || '', cloudinaryResult.secure_url, cloudinaryResult.public_id, categoria_id || null]

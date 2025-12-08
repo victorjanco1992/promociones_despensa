@@ -55,13 +55,23 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
+      
+      // ⭐ IMPORTANTE: Enviar headers de autenticación en TODAS las peticiones
+      const authHeaders = getAuthHeaders()
+      console.log('🔐 Cargando datos con headers:', authHeaders)
+      
       const [catRes, promoRes, configRes] = await Promise.all([
         axios.get(`${import.meta.env.VITE_API_URL}/api/categorias`),
         axios.get(`${import.meta.env.VITE_API_URL}/api/promociones`, { 
-          headers: getAuthHeaders() // ⭐ Enviar headers de autenticación para ver TODAS
+          headers: authHeaders // ⭐ Esto es CRÍTICO
         }),
         axios.get(`${import.meta.env.VITE_API_URL}/api/configuracion`)
       ])
+      
+      console.log('✅ Promociones cargadas:', promoRes.data.length)
+      console.log('📊 Visibles:', promoRes.data.filter(p => p.visible).length)
+      console.log('🚫 Ocultas:', promoRes.data.filter(p => !p.visible).length)
+      
       setCategorias(catRes.data)
       setPromociones(promoRes.data)
       setConfiguracion(configRes.data)
@@ -509,6 +519,15 @@ const AdminDashboard = () => {
 
             {/* Lista con Drag & Drop */}
             <div className="bg-white rounded-xl shadow-lg p-6">
+              {/* Indicador de modo admin */}
+              <div className="bg-gradient-to-r from-purple-100 to-blue-100 border-l-4 border-purple-500 p-3 rounded-lg mb-4">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-lg">👨‍💼</span>
+                  <span className="font-semibold text-purple-800">Modo Administrador:</span>
+                  <span className="text-purple-700">Estás viendo TODAS las promociones (visibles y ocultas)</span>
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">
                   📋 Promociones ({promociones.length})
@@ -564,26 +583,50 @@ const AdminDashboard = () => {
               ) : promociones.length === 0 ? (
                 <p className="text-gray-600 text-center py-8">No hay promociones</p>
               ) : (
-                <div className="space-y-4">
-                  {promociones
-                    .filter(promo => {
-                      if (filtroVisible === 'visibles') return promo.visible
-                      if (filtroVisible === 'ocultas') return !promo.visible
-                      return true // 'todas'
-                    })
-                    .map((promo, index) => (
+                (() => {
+                  const promocionesFiltradas = promociones.filter(promo => {
+                    if (filtroVisible === 'visibles') return promo.visible
+                    if (filtroVisible === 'ocultas') return !promo.visible
+                    return true // 'todas'
+                  })
+
+                  if (promocionesFiltradas.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <p className="text-gray-500 text-lg mb-2">
+                          {filtroVisible === 'visibles' && '✅ No hay promociones visibles'}
+                          {filtroVisible === 'ocultas' && '🚫 No hay promociones ocultas'}
+                        </p>
+                        <button
+                          onClick={() => setFiltroVisible('todas')}
+                          className="text-blue-600 hover:text-blue-700 font-semibold"
+                        >
+                          Ver todas las promociones
+                        </button>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {promocionesFiltradas.map((promo, index) => {
+                        // Encontrar el índice real en el array completo para el drag & drop
+                        const realIndex = promociones.findIndex(p => p.id === promo.id)
+                        return (
+                    <div
+                        return (
                     <div
                       key={promo.id}
                       draggable
-                      onDragStart={(e) => handleDragStart(e, index)}
-                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragStart={(e) => handleDragStart(e, realIndex)}
+                      onDragOver={(e) => handleDragOver(e, realIndex)}
                       onDragEnd={handleDragEnd}
                       onDragLeave={handleDragLeave}
                       className={`
                         relative flex flex-col sm:flex-row gap-4 p-4 border-2 rounded-lg 
                         transition-all duration-200 cursor-move
-                        ${draggedItem === index ? 'opacity-50 scale-95' : ''}
-                        ${dragOverIndex === index && draggedItem !== index 
+                        ${draggedItem === realIndex ? 'opacity-50 scale-95' : ''}
+                        ${dragOverIndex === realIndex && draggedItem !== realIndex 
                           ? 'border-green-500 bg-green-50 scale-105 shadow-lg' 
                           : promo.visible 
                             ? 'border-gray-200 hover:border-green-300 hover:shadow-md'
@@ -601,7 +644,7 @@ const AdminDashboard = () => {
                       {/* Número de orden */}
                       <div className="flex items-center justify-center">
                         <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center text-lg">
-                          {index + 1}
+                          {realIndex + 1}
                         </div>
                       </div>
 
@@ -662,8 +705,11 @@ const AdminDashboard = () => {
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()
               )}
             </div>
           </div>

@@ -81,6 +81,13 @@ async function initDatabase() {
     `);
     console.log('✅ Campo "orden" verificado en tabla promociones');
 
+    // ⭐ AGREGAR COLUMNA VISIBLE (si no existe) - PARA OCULTAR PROMOCIONES
+    await pool.query(`
+      ALTER TABLE promociones 
+      ADD COLUMN IF NOT EXISTS visible BOOLEAN DEFAULT true;
+    `);
+    console.log('✅ Campo "visible" verificado en tabla promociones');
+
     // Crear tabla de configuración del negocio
     await pool.query(`
       CREATE TABLE IF NOT EXISTS configuracion (
@@ -349,14 +356,25 @@ app.delete('/api/categorias/:id', authMiddleware, async (req, res) => {
 // ========================================
 
 // GET /api/promociones - Obtener todas (MODIFICADO: ordenar por campo "orden")
+// Para admin: muestra todas. Para público: solo las visibles
 app.get('/api/promociones', async (req, res) => {
   try {
-    const result = await pool.query(`
+    const isAdmin = req.headers['x-authenticated'] === 'true';
+    
+    let query = `
       SELECT p.*, c.nombre as categoria_nombre, c.icono as categoria_icono, c.color as categoria_color
       FROM promociones p
       LEFT JOIN categorias c ON p.categoria_id = c.id
-      ORDER BY p.orden ASC, p.created_at DESC
-    `);
+    `;
+    
+    // Si no es admin, solo mostrar las visibles
+    if (!isAdmin) {
+      query += ` WHERE p.visible = true`;
+    }
+    
+    query += ` ORDER BY p.orden ASC, p.created_at DESC`;
+    
+    const result = await pool.query(query);
     res.json(result.rows);
   } catch (error) {
     console.error('Error al obtener promociones:', error);
@@ -368,10 +386,18 @@ app.get('/api/promociones', async (req, res) => {
 app.get('/api/promociones/categoria/:categoriaId', async (req, res) => {
   try {
     const { categoriaId } = req.params;
-    const result = await pool.query(
-      'SELECT * FROM promociones WHERE categoria_id = $1 ORDER BY orden ASC, created_at DESC',
-      [categoriaId]
-    );
+    const isAdmin = req.headers['x-authenticated'] === 'true';
+    
+    let query = 'SELECT * FROM promociones WHERE categoria_id = $1';
+    
+    // Si no es admin, solo mostrar las visibles
+    if (!isAdmin) {
+      query += ' AND visible = true';
+    }
+    
+    query += ' ORDER BY orden ASC, created_at DESC';
+    
+    const result = await pool.query(query, [categoriaId]);
     res.json(result.rows);
   } catch (error) {
     console.error('Error al obtener promociones:', error);
@@ -414,6 +440,37 @@ app.put('/api/promociones/reordenar', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('❌ Error al reordenar promociones:', error);
     res.status(500).json({ error: 'Error al reordenar promociones' });
+  }
+});
+
+// ⭐ NUEVO ENDPOINT: PUT /api/promociones/:id/toggle-visible - Ocultar/Mostrar promoción
+app.put('/api/promociones/:id/toggle-visible', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Obtener el estado actual
+    const currentPromo = await pool.query('SELECT visible FROM promociones WHERE id = $1', [id]);
+
+    if (currentPromo.rows.length === 0) {
+      return res.status(404).json({ error: 'Promoción no encontrada' });
+    }
+
+    // Invertir el estado visible
+    const newVisible = !currentPromo.rows[0].visible;
+
+    const result = await pool.query(
+      'UPDATE promociones SET visible = $1 WHERE id = $2 RETURNING *',
+      [newVisible, id]
+    );
+
+    console.log(`✅ Promoción ${id} ahora está ${newVisible ? 'visible' : 'oculta'}`);
+    res.json({ 
+      message: `Promoción ${newVisible ? 'mostrada' : 'ocultada'} exitosamente`, 
+      promocion: result.rows[0] 
+    });
+  } catch (error) {
+    console.error('❌ Error al cambiar visibilidad:', error);
+    res.status(500).json({ error: 'Error al cambiar visibilidad' });
   }
 });
 

@@ -355,11 +355,14 @@ app.delete('/api/categorias/:id', authMiddleware, async (req, res) => {
 // RUTAS DE PROMOCIONES
 // ========================================
 
-// GET /api/promociones - Obtener todas (MODIFICADO: ordenar por campo "orden")
-// Para admin: muestra todas. Para público: solo las visibles
+// GET /api/promociones - Obtener todas
+// IMPORTANTE: Admin SIEMPRE ve todas, público solo las visibles
 app.get('/api/promociones', async (req, res) => {
   try {
+    // Verificar si la petición viene del admin
     const isAdmin = req.headers['x-authenticated'] === 'true';
+    
+    console.log('📊 GET promociones - isAdmin:', isAdmin);
     
     let query = `
       SELECT p.*, c.nombre as categoria_nombre, c.icono as categoria_icono, c.color as categoria_color
@@ -367,14 +370,18 @@ app.get('/api/promociones', async (req, res) => {
       LEFT JOIN categorias c ON p.categoria_id = c.id
     `;
     
-    // Si no es admin, solo mostrar las visibles
+    // SOLO filtrar si NO es admin
     if (!isAdmin) {
       query += ` WHERE p.visible = true`;
+      console.log('👥 Usuario público - Solo mostrando visibles');
+    } else {
+      console.log('👨‍💼 Admin - Mostrando TODAS las promociones');
     }
     
     query += ` ORDER BY p.orden ASC, p.created_at DESC`;
     
     const result = await pool.query(query);
+    console.log(`✅ Devolviendo ${result.rows.length} promociones`);
     res.json(result.rows);
   } catch (error) {
     console.error('Error al obtener promociones:', error);

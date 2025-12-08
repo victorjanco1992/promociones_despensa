@@ -606,14 +606,6 @@ const AdminDashboard = () => {
                       </div>
                     )
                   }
-
-                  return (
-                    <div className="space-y-4">
-                      {promocionesFiltradas.map((promo, index) => {
-                        // Encontrar el índice real en el array completo para el drag & drop
-                        const realIndex = promociones.findIndex(p => p.id === promo.id)
-                        return (
-                    <div
                   return (
                     <div className="space-y-4">
                       {promocionesFiltradas.map((promo, index) => {

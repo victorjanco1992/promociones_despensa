@@ -614,97 +614,102 @@ const AdminDashboard = () => {
                         const realIndex = promociones.findIndex(p => p.id === promo.id)
                         return (
                     <div
+                  return (
+                    <div className="space-y-4">
+                      {promocionesFiltradas.map((promo, index) => {
+                        // Encontrar el índice real en el array completo para el drag & drop
+                        const realIndex = promociones.findIndex(p => p.id === promo.id)
                         return (
-                    <div
-                      key={promo.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, realIndex)}
-                      onDragOver={(e) => handleDragOver(e, realIndex)}
-                      onDragEnd={handleDragEnd}
-                      onDragLeave={handleDragLeave}
-                      className={`
-                        relative flex flex-col sm:flex-row gap-4 p-4 border-2 rounded-lg 
-                        transition-all duration-200 cursor-move
-                        ${draggedItem === realIndex ? 'opacity-50 scale-95' : ''}
-                        ${dragOverIndex === realIndex && draggedItem !== realIndex 
-                          ? 'border-green-500 bg-green-50 scale-105 shadow-lg' 
-                          : promo.visible 
-                            ? 'border-gray-200 hover:border-green-300 hover:shadow-md'
-                            : 'border-red-200 bg-red-50 hover:border-red-300'
-                        }
-                      `}
-                    >
-                      {/* Drag Handle */}
-                      <div className="flex items-center justify-center w-8">
-                        <div className="text-2xl text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
-                          ⋮⋮
-                        </div>
-                      </div>
+                          <div
+                            key={promo.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, realIndex)}
+                            onDragOver={(e) => handleDragOver(e, realIndex)}
+                            onDragEnd={handleDragEnd}
+                            onDragLeave={handleDragLeave}
+                            className={`
+                              relative flex flex-col sm:flex-row gap-4 p-4 border-2 rounded-lg 
+                              transition-all duration-200 cursor-move
+                              ${draggedItem === realIndex ? 'opacity-50 scale-95' : ''}
+                              ${dragOverIndex === realIndex && draggedItem !== realIndex 
+                                ? 'border-green-500 bg-green-50 scale-105 shadow-lg' 
+                                : promo.visible 
+                                  ? 'border-gray-200 hover:border-green-300 hover:shadow-md'
+                                  : 'border-red-200 bg-red-50 hover:border-red-300'
+                              }
+                            `}
+                          >
+                            {/* Drag Handle */}
+                            <div className="flex items-center justify-center w-8">
+                              <div className="text-2xl text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing">
+                                ⋮⋮
+                              </div>
+                            </div>
 
-                      {/* Número de orden */}
-                      <div className="flex items-center justify-center">
-                        <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center text-lg">
-                          {realIndex + 1}
-                        </div>
-                      </div>
+                            {/* Número de orden */}
+                            <div className="flex items-center justify-center">
+                              <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center text-lg">
+                                {realIndex + 1}
+                              </div>
+                            </div>
 
-                      {/* Badge de estado visible/oculto */}
-                      {!promo.visible && (
-                        <div className="absolute top-2 left-2 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10 flex items-center gap-1">
-                          <span>🚫</span>
-                          <span>OCULTA PARA PÚBLICO</span>
-                        </div>
-                      )}
+                            {/* Badge de estado visible/oculto */}
+                            {!promo.visible && (
+                              <div className="absolute top-2 left-2 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10 flex items-center gap-1">
+                                <span>🚫</span>
+                                <span>OCULTA PARA PÚBLICO</span>
+                              </div>
+                            )}
 
-                      <img 
-                        src={promo.imagen_url} 
-                        alt={promo.titulo} 
-                        className={`w-full sm:w-32 h-32 object-cover rounded-lg transition ${
-                          !promo.visible ? 'opacity-40 grayscale' : ''
-                        }`}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className={`text-lg font-bold ${promo.visible ? 'text-gray-800' : 'text-red-600'}`}>
-                            {promo.titulo}
-                          </h3>
-                          {!promo.visible && (
-                            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">
-                              Solo admin
-                            </span>
-                          )}
-                        </div>
-                        {promo.descripcion && (
-                          <p className={`text-sm mt-1 ${promo.visible ? 'text-gray-600' : 'text-gray-500'}`}>
-                            {promo.descripcion}
-                          </p>
-                        )}
-                        {promo.categoria_nombre && (
-                          <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                            {promo.categoria_icono} {promo.categoria_nombre}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex sm:flex-col gap-2">
-                        <button 
-                          onClick={() => handleToggleVisible(promo.id, promo.visible)}
-                          className={`flex-1 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                            promo.visible 
-                              ? 'bg-orange-600 text-white hover:bg-orange-700' 
-                              : 'bg-green-600 text-white hover:bg-green-700'
-                          }`}
-                          title={promo.visible ? 'Ocultar promoción' : 'Mostrar promoción'}
-                        >
-                          {promo.visible ? '👁️ Ocultar' : '✅ Mostrar'}
-                        </button>
-                        <button onClick={() => handleEditPromo(promo)} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold">
-                          Editar
-                        </button>
-                        <button onClick={() => handleDeletePromo(promo.id)} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-semibold">
-                          Eliminar
-                        </button>
-                      </div>
-                    </div>
+                            <img 
+                              src={promo.imagen_url} 
+                              alt={promo.titulo} 
+                              className={`w-full sm:w-32 h-32 object-cover rounded-lg transition ${
+                                !promo.visible ? 'opacity-40 grayscale' : ''
+                              }`}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h3 className={`text-lg font-bold ${promo.visible ? 'text-gray-800' : 'text-red-600'}`}>
+                                  {promo.titulo}
+                                </h3>
+                                {!promo.visible && (
+                                  <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">
+                                    Solo admin
+                                  </span>
+                                )}
+                              </div>
+                              {promo.descripcion && (
+                                <p className={`text-sm mt-1 ${promo.visible ? 'text-gray-600' : 'text-gray-500'}`}>
+                                  {promo.descripcion}
+                                </p>
+                              )}
+                              {promo.categoria_nombre && (
+                                <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                                  {promo.categoria_icono} {promo.categoria_nombre}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex sm:flex-col gap-2">
+                              <button 
+                                onClick={() => handleToggleVisible(promo.id, promo.visible)}
+                                className={`flex-1 px-4 py-2 rounded-lg transition text-sm font-semibold ${
+                                  promo.visible 
+                                    ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                                    : 'bg-green-600 text-white hover:bg-green-700'
+                                }`}
+                                title={promo.visible ? 'Ocultar promoción' : 'Mostrar promoción'}
+                              >
+                                {promo.visible ? '👁️ Ocultar' : '✅ Mostrar'}
+                              </button>
+                              <button onClick={() => handleEditPromo(promo)} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold">
+                                Editar
+                              </button>
+                              <button onClick={() => handleDeletePromo(promo.id)} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-semibold">
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
                         )
                       })}
                     </div>

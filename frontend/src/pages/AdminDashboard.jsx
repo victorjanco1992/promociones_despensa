@@ -218,6 +218,20 @@ const AdminDashboard = () => {
     }
   }
 
+  const handleToggleVisible = async (id, currentVisible) => {
+    try {
+      await axios.put(
+        `${import.meta.env.VITE_API_URL}/api/promociones/${id}/toggle-visible`,
+        {},
+        { headers: getAuthHeaders() }
+      )
+      showSuccess(currentVisible ? '👁️ Promoción ocultada' : '✅ Promoción visible')
+      fetchData()
+    } catch (err) {
+      alert(err.response?.data?.error || 'Error al cambiar visibilidad')
+    }
+  }
+
   const handleCancelPromo = () => {
     setEditingId(null)
     setTitulo('')
@@ -541,9 +555,22 @@ const AdminDashboard = () => {
                         </div>
                       </div>
 
-                      <img src={promo.imagen_url} alt={promo.titulo} className="w-full sm:w-32 h-32 object-cover rounded-lg" />
+                      {/* Badge de estado visible/oculto */}
+                      {!promo.visible && (
+                        <div className="absolute top-2 left-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
+                          👁️ OCULTA
+                        </div>
+                      )}
+
+                      <img 
+                        src={promo.imagen_url} 
+                        alt={promo.titulo} 
+                        className={`w-full sm:w-32 h-32 object-cover rounded-lg ${!promo.visible ? 'opacity-50' : ''}`}
+                      />
                       <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-800">{promo.titulo}</h3>
+                        <h3 className={`text-lg font-bold ${promo.visible ? 'text-gray-800' : 'text-gray-500'}`}>
+                          {promo.titulo}
+                        </h3>
                         {promo.descripcion && <p className="text-sm text-gray-600 mt-1">{promo.descripcion}</p>}
                         {promo.categoria_nombre && (
                           <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
@@ -552,6 +579,17 @@ const AdminDashboard = () => {
                         )}
                       </div>
                       <div className="flex sm:flex-col gap-2">
+                        <button 
+                          onClick={() => handleToggleVisible(promo.id, promo.visible)}
+                          className={`flex-1 px-4 py-2 rounded-lg transition text-sm font-semibold ${
+                            promo.visible 
+                              ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                              : 'bg-green-600 text-white hover:bg-green-700'
+                          }`}
+                          title={promo.visible ? 'Ocultar promoción' : 'Mostrar promoción'}
+                        >
+                          {promo.visible ? '👁️ Ocultar' : '✅ Mostrar'}
+                        </button>
                         <button onClick={() => handleEditPromo(promo)} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold">
                           Editar
                         </button>

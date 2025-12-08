@@ -33,6 +33,9 @@ const AdminDashboard = () => {
   const [dragOverIndex, setDragOverIndex] = useState(null)
   const [isReordering, setIsReordering] = useState(false)
 
+  // ⭐ Estado para filtrar promociones por visibilidad
+  const [filtroVisible, setFiltroVisible] = useState('todas') // 'todas', 'visibles', 'ocultas'
+
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -54,7 +57,9 @@ const AdminDashboard = () => {
       setLoading(true)
       const [catRes, promoRes, configRes] = await Promise.all([
         axios.get(`${import.meta.env.VITE_API_URL}/api/categorias`),
-        axios.get(`${import.meta.env.VITE_API_URL}/api/promociones`),
+        axios.get(`${import.meta.env.VITE_API_URL}/api/promociones`, { 
+          headers: getAuthHeaders() // ⭐ Enviar headers de autenticación para ver TODAS
+        }),
         axios.get(`${import.meta.env.VITE_API_URL}/api/configuracion`)
       ])
       setCategorias(catRes.data)
@@ -504,14 +509,51 @@ const AdminDashboard = () => {
 
             {/* Lista con Drag & Drop */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">
                   📋 Promociones ({promociones.length})
                 </h2>
-                <div className="bg-blue-50 px-4 py-2 rounded-lg">
-                  <p className="text-sm text-blue-700 font-semibold">
-                    💡 Arrastra para reordenar
-                  </p>
+                
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Filtros */}
+                  <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                    <button
+                      onClick={() => setFiltroVisible('todas')}
+                      className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                        filtroVisible === 'todas' 
+                          ? 'bg-white text-gray-800 shadow' 
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      Todas ({promociones.length})
+                    </button>
+                    <button
+                      onClick={() => setFiltroVisible('visibles')}
+                      className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                        filtroVisible === 'visibles' 
+                          ? 'bg-white text-green-700 shadow' 
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      ✅ Visibles ({promociones.filter(p => p.visible).length})
+                    </button>
+                    <button
+                      onClick={() => setFiltroVisible('ocultas')}
+                      className={`px-3 py-1 rounded text-sm font-semibold transition ${
+                        filtroVisible === 'ocultas' 
+                          ? 'bg-white text-red-700 shadow' 
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      🚫 Ocultas ({promociones.filter(p => !p.visible).length})
+                    </button>
+                  </div>
+
+                  <div className="bg-blue-50 px-4 py-2 rounded-lg">
+                    <p className="text-sm text-blue-700 font-semibold">
+                      💡 Arrastra para reordenar
+                    </p>
+                  </div>
                 </div>
               </div>
               
@@ -523,7 +565,13 @@ const AdminDashboard = () => {
                 <p className="text-gray-600 text-center py-8">No hay promociones</p>
               ) : (
                 <div className="space-y-4">
-                  {promociones.map((promo, index) => (
+                  {promociones
+                    .filter(promo => {
+                      if (filtroVisible === 'visibles') return promo.visible
+                      if (filtroVisible === 'ocultas') return !promo.visible
+                      return true // 'todas'
+                    })
+                    .map((promo, index) => (
                     <div
                       key={promo.id}
                       draggable
@@ -532,12 +580,14 @@ const AdminDashboard = () => {
                       onDragEnd={handleDragEnd}
                       onDragLeave={handleDragLeave}
                       className={`
-                        flex flex-col sm:flex-row gap-4 p-4 border-2 rounded-lg 
+                        relative flex flex-col sm:flex-row gap-4 p-4 border-2 rounded-lg 
                         transition-all duration-200 cursor-move
                         ${draggedItem === index ? 'opacity-50 scale-95' : ''}
                         ${dragOverIndex === index && draggedItem !== index 
                           ? 'border-green-500 bg-green-50 scale-105 shadow-lg' 
-                          : 'border-gray-200 hover:border-green-300 hover:shadow-md'
+                          : promo.visible 
+                            ? 'border-gray-200 hover:border-green-300 hover:shadow-md'
+                            : 'border-red-200 bg-red-50 hover:border-red-300'
                         }
                       `}
                     >
@@ -557,21 +607,35 @@ const AdminDashboard = () => {
 
                       {/* Badge de estado visible/oculto */}
                       {!promo.visible && (
-                        <div className="absolute top-2 left-2 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
-                          👁️ OCULTA
+                        <div className="absolute top-2 left-2 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10 flex items-center gap-1">
+                          <span>🚫</span>
+                          <span>OCULTA PARA PÚBLICO</span>
                         </div>
                       )}
 
                       <img 
                         src={promo.imagen_url} 
                         alt={promo.titulo} 
-                        className={`w-full sm:w-32 h-32 object-cover rounded-lg ${!promo.visible ? 'opacity-50' : ''}`}
+                        className={`w-full sm:w-32 h-32 object-cover rounded-lg transition ${
+                          !promo.visible ? 'opacity-40 grayscale' : ''
+                        }`}
                       />
                       <div className="flex-1">
-                        <h3 className={`text-lg font-bold ${promo.visible ? 'text-gray-800' : 'text-gray-500'}`}>
-                          {promo.titulo}
-                        </h3>
-                        {promo.descripcion && <p className="text-sm text-gray-600 mt-1">{promo.descripcion}</p>}
+                        <div className="flex items-center gap-2">
+                          <h3 className={`text-lg font-bold ${promo.visible ? 'text-gray-800' : 'text-red-600'}`}>
+                            {promo.titulo}
+                          </h3>
+                          {!promo.visible && (
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-semibold">
+                              Solo admin
+                            </span>
+                          )}
+                        </div>
+                        {promo.descripcion && (
+                          <p className={`text-sm mt-1 ${promo.visible ? 'text-gray-600' : 'text-gray-500'}`}>
+                            {promo.descripcion}
+                          </p>
+                        )}
                         {promo.categoria_nombre && (
                           <span className="inline-block mt-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
                             {promo.categoria_icono} {promo.categoria_nombre}

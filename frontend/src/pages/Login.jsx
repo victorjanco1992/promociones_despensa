@@ -12,7 +12,7 @@ const Login = () => {
     e.preventDefault()
     
     if (pin.length !== 4) {
-      setError('El PIN debe tener 4 dígitos')
+      setError('El PIN debe tener dígitos')
       return
     }
 
@@ -50,7 +50,7 @@ const Login = () => {
             🔐 Admin Login
           </h1>
           <p className="text-green-100">
-            Ingrese su PIN de 4 dígitos
+            Ingrese su PIN dígitos
           </p>
         </div>
 
